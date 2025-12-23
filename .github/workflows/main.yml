@@ -1,0 +1,52 @@
+name: Hardware Specification Report
+
+on:
+  workflow_dispatch:
+    inputs:
+      cpuz_version:
+        description: 'CPU-Z Version (e.g., 2.12, 2.17)'
+        required: true
+        default: '2.17'
+        type: string
+
+jobs:
+  main:
+    strategy:
+      matrix:
+        os: [windows-2022, windows-2025]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Run Systeminfo
+        run: systeminfo
+
+      - name: Run Coreinfo
+        run: |
+          Invoke-WebRequest -Uri https://download.sysinternals.com/files/Coreinfo.zip -OutFile Coreinfo.zip
+          7z x Coreinfo.zip -y
+          cmd /c "Coreinfo.exe -accepteula > coreinfo.txt"
+          Get-Content coreinfo.txt | Select-Object -First 20
+
+      - name: Run CPU-Z
+        run: |
+          $version = "${{ inputs.cpuz_version }}"
+          $cpuzUrl = "https://download.cpuid.com/cpu-z/cpu-z_${version}-en.zip"
+          Invoke-WebRequest -Uri $cpuzUrl -OutFile cpu-z.zip
+          7z x cpu-z.zip -y
+          Start-Process -FilePath ./cpuz_x64.exe -ArgumentList "-txt=cpuz_report" -Wait -NoNewWindow
+          if (Test-Path cpuz_report.txt) { 
+            Get-Content cpuz_report.txt | Select-Object -First 20
+          } else {
+            Write-Warning "cpuz_report.txt not found"
+          }
+
+      - name: Upload Artifact
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: report-${{ matrix.os }}
+          path: |
+            coreinfo.txt
+            cpuz_report.txt
