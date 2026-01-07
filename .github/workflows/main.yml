@@ -1,12 +1,17 @@
 name: Hardware Specification Report
 
+env:
+  DEFAULT_CPUZ_VERSION: '2.17'
+
 on:
+  schedule:
+    - cron: '0 0 1 * *'
   workflow_dispatch:
     inputs:
       cpuz_version:
         description: 'CPU-Z Version (e.g., 2.12, 2.17)'
-        required: true
-        default: '2.17'
+        required: false
+        default: ''
         type: string
 
 jobs:
@@ -27,17 +32,17 @@ jobs:
           Invoke-WebRequest -Uri https://download.sysinternals.com/files/Coreinfo.zip -OutFile Coreinfo.zip
           7z x Coreinfo.zip -y
           cmd /c "Coreinfo.exe -accepteula > coreinfo.txt"
-          Get-Content coreinfo.txt | Select-Object -First 20
+          Get-Content coreinfo.txt | Select-Object -First 100
 
       - name: Run CPU-Z
         run: |
-          $version = "${{ inputs.cpuz_version }}"
+          $version = "${{ inputs.cpuz_version || env.DEFAULT_CPUZ_VERSION }}"
           $cpuzUrl = "https://download.cpuid.com/cpu-z/cpu-z_${version}-en.zip"
           Invoke-WebRequest -Uri $cpuzUrl -OutFile cpu-z.zip
           7z x cpu-z.zip -y
           Start-Process -FilePath ./cpuz_x64.exe -ArgumentList "-txt=cpuz_report" -Wait -NoNewWindow
           if (Test-Path cpuz_report.txt) { 
-            Get-Content cpuz_report.txt | Select-Object -First 20
+            Get-Content cpuz_report.txt | Select-Object -First 100
           } else {
             Write-Warning "cpuz_report.txt not found"
           }
